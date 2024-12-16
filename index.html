@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goal Sync</title>
+    <script src="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #f6f8f9 0%, #e5ebee 100%);
+            font-family: 'Inter', sans-serif;
+        }
+        .soft-shadow {
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .glass-effect {
+            background: rgba(255,255,255,0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center">
+    <div class="container mx-auto px-4 max-w-xl w-full">
+        <div class="bg-white rounded-2xl soft-shadow p-8">
+            <h1 class="text-4xl font-bold text-center mb-6 text-gray-800">Goal Sync</h1>
+
+            <!-- Guest Login Section -->
+            <div id="guest-login" class="space-y-4">
+                <input 
+                    type="text" 
+                    id="username" 
+                    placeholder="Choose a Username" 
+                    class="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+                >
+                <button 
+                    onclick="createGuestAccount()" 
+                    class="w-full bg-blue-500 text-white p-3 rounded-lg hover:bg-blue-600 transition duration-300"
+                >
+                    Join as Guest
+                </button>
+            </div>
+
+            <!-- Goal Input Section -->
+            <div id="goal-section" class="mt-6 hidden">
+                <div class="mb-4">
+                    <h2 class="text-2xl font-semibold mb-3">Your Daily Goals</h2>
+                    <div class="space-y-3" id="goals-container"></div>
+                </div>
+
+                <div class="glass-effect p-4 mt-4">
+                    <input 
+                        type="text" 
+                        id="new-goal-input" 
+                        placeholder="Enter a new goal" 
+                        class="w-full p-2 rounded border mb-2"
+                    >
+                    <div class="flex space-x-2">
+                        <input 
+                            type="time" 
+                            id="start-time" 
+                            class="w-1/2 p-2 rounded border"
+                        >
+                        <input 
+                            type="time" 
+                            id="end-time" 
+                            class="w-1/2 p-2 rounded border"
+                        >
+                    </div>
+                    <button 
+                        onclick="addGoal()" 
+                        class="w-full mt-2 bg-green-500 text-white p-2 rounded hover:bg-green-600"
+                    >
+                        Add Goal
+                    </button>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="text-xl font-semibold mb-3">Connected Users</h3>
+                    <div id="users-list" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Local storage for managing goals and users
+        const goalsKey = 'goalSync_goals';
+        const usersKey = 'goalSync_users';
+        
+        let currentUser = null;
+
+        function createGuestAccount() {
+            const username = document.getElementById('username').value.trim();
+            
+            if (!username) {
+                alert('Please choose a username');
+                return;
+            }
+
+            // Create unique user ID
+            const userId = Date.now().toString();
+            
+            currentUser = {
+                id: userId,
+                username: username
+            };
+
+            // Save user to local storage
+            let users = JSON.parse(localStorage.getItem(usersKey)) || [];
+            users.push(currentUser);
+            localStorage.setItem(usersKey, JSON.stringify(users));
+
+            // Switch to goal section
+            document.getElementById('guest-login').classList.add('hidden');
+            document.getElementById('goal-section').classList.remove('hidden');
+
+            updateUsersList();
+        }
+
+        function addGoal() {
+            if (!currentUser) {
+                alert('Please create a guest account first');
+                return;
+            }
+
+            const goalInput = document.getElementById('new-goal-input');
+            const startTimeInput = document.getElementById('start-time');
+            const endTimeInput = document.getElementById('end-time');
+
+            const goal = goalInput.value.trim();
+            const startTime = startTimeInput.value;
+            const endTime = endTimeInput.value;
+
+            if (!goal || !startTime || !endTime) {
+                alert('Please fill in all goal details');
+                return;
+            }
+
+            const newGoal = {
+                id: Date.now().toString(),
+                userId: currentUser.id,
+                text: goal,
+                startTime: startTime,
+                endTime: endTime,
+                completed: false
+            };
+
+            // Retrieve and update goals
+            let goals = JSON.parse(localStorage.getItem(goalsKey)) || [];
+            goals.push(newGoal);
+            localStorage.setItem(goalsKey, JSON.stringify(goals));
+
+            // Clear inputs
+            goalInput.value = '';
+            startTimeInput.value = '';
+            endTimeInput.value = '';
+
+            renderGoals();
+        }
+
+        function renderGoals() {
+            const goalsContainer = document.getElementById('goals-container');
+            goalsContainer.innerHTML = '';
+
+            const goals = JSON.parse(localStorage.getItem(goalsKey)) || [];
+            const userGoals = goals.filter(goal => goal.userId === currentUser.id);
+
+            userGoals.forEach(goal => {
+                const goalElement = document.createElement('div');
+                goalElement.classList.add('bg-gray-100', 'p-3', 'rounded', 'flex', 'justify-between', 'items-center');
+                goalElement.innerHTML = `
+                    <div>
+                        <p class="font-semibold">${goal.text}</p>
+                        <p class="text-sm text-gray-600">${goal.startTime} - ${goal.endTime}</p>
+                    </div>
+                    <input 
+                        type="checkbox" 
+                        ${goal.completed ? 'checked' : ''} 
+                        onchange="toggleGoalCompletion('${goal.id}')"
+                    >
+                `;
+                goalsContainer.appendChild(goalElement);
+            });
+        }
+
+        function toggleGoalCompletion(goalId) {
+            let goals = JSON.parse(localStorage.getItem(goalsKey)) || [];
+            const goalIndex = goals.findIndex(goal => goal.id === goalId);
+            
+            if (goalIndex !== -1) {
+                goals[goalIndex].completed = !goals[goalIndex].completed;
+                localStorage.setItem(goalsKey, JSON.stringify(goals));
+                renderGoals();
+            }
+        }
+
+        function updateUsersList() {
+            const usersList = document.getElementById('users-list');
+            usersList.innerHTML = '';
+
+            const users = JSON.parse(localStorage.getItem(usersKey)) || [];
+            
+            users.forEach(user => {
+                const userElement = document.createElement('div');
+                userElement.classList.add('bg-gray-100', 'p-2', 'rounded', 'cursor-pointer', 'hover:bg-gray-200');
+                userElement.textContent = user.username;
+                userElement.onclick = () => showUserGoals(user.id);
+                usersList.appendChild(userElement);
+            });
+        }
+
+        function showUserGoals(userId) {
+            const goals = JSON.parse(localStorage.getItem(goalsKey)) || [];
+            const userGoals = goals.filter(goal => goal.userId === userId);
+
+            alert(`Goals for user: \n${userGoals.map(goal => 
+                `${goal.text} (${goal.startTime} - ${goal.endTime})`
+            ).join('\n')}`);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (currentUser) {
+                renderGoals();
+                updateUsersList();
+            }
+        });
+    </script>
+</body>
+</html>
